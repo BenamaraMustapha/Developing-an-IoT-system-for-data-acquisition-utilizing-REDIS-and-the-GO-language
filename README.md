@@ -11,7 +11,7 @@ The receptor module is designed to facilitate the reception and storage of data 
     -Subsequently, this data is rapidly cached in memory, ready for processing by the supervisory application.
 
 ## Steps Explanation:
-<div style="display: flex; justify-content: center;"> <img src="https://github.com/BenamaraMustapha/Developing-an-IoT-system-for-data-acquisition-utilizing-REDIS-and-the-GO-language/assets/119163433/3422ac6d-418f-4eb8-9c13-2850327f6022" width="300" height="150"> </div>
+<img src="https://github.com/BenamaraMustapha/Developing-an-IoT-system-for-data-acquisition-utilizing-REDIS-and-the-GO-language/assets/119163433/3422ac6d-418f-4eb8-9c13-2850327f6022"> 
 
 - Sensor Network: The sensors are linked to microcontroller devices responsible for transmitting data to the concentrator. The choice of board models such as Arduino, ESP8266, ESP32, PIC, etc., is unrestricted. However, the selection should align with the preferred communication method.
 
@@ -189,4 +189,219 @@ We'll commence by detailing the NodeMCU application.
 NodeMCU Application
 Station NodeMCU
 ### Prototype
+<img src="https://github.com/BenamaraMustapha/Developing-an-IoT-system-for-data-acquisition-utilizing-REDIS-and-the-GO-language/assets/119163433/1bd56852-c80d-4134-868a-c9c0ab162950">
+## Components
 
+- NodeMCU card. In fact, it can be any ESP *. * Family board compatible with the Arduino IDE (ESP8266, NodeMCU, Wemos, ESP32, etc.)
+- 10K NTC thermistor type temperature sensor
+- Jumper wires and, optionally, a protoboard
+## Required Software
+
+- To create the websocket server, we will need to install the [ArduinoWebsockets](https://github.com/gilmaimon/ArduinoWebsockets)
+ which can be installed by the Arduino IDE itself through a library manager.
+- The temperature data from the sensor will be sent every 3 minutes to the WEB server. To simplify our code, let's count the time with millis using the [NeoTimer](https://github.com/jrullan/neotimer), library, which is also available in the manager.
+- The temperature reading and calculation will be done through the following routine available on the Internet: [Thermistor Interfacing with NodeMCU](https://www.electronicwings.com/nodemcu/thermistor-interfacing-with-nodemcu)
+## Sketch
+    C++
+    /*
+     This sketch:
+            1. Connects to a WiFi network
+            2. Connects to a Websockets server
+            3. Periodically sends data from a temperature sensor to the server
+            4. Receives return messages from the server
+    */
+
+    // From library Manager
+    #include <arduinowebsockets.h> 
+    #include <esp8266wifi.h>
+    #include <neotimer.h>
+
+    const char* ssid = "x";  //Enter your SSID
+    const char* password = "y"; //Enter your Password
+    const char* websockets_server_host = "192.168.0.0"; //Enter your server address
+    const uint16_t websockets_server_port = 8080; // Enter server port
+
+    Neotimer mytimer = Neotimer(10000); // Time interval for sending sensor data
+    String tempString;
+    String sensor = "TMP|5";
+    using namespace websockets;
+
+    WebsocketsClient client;
+    void setup() {
+        Serial.begin(9600);
+    
+        // Connect to wifi
+        WiFi.begin(ssid, password);
+
+        // Wait some time to connect to wifi
+        for(int i = 0; i < 10 && WiFi.status() != WL_CONNECTED; i++) {
+            Serial.print(".");
+            delay(1000);
+        }
+
+        // Check if connected to wifi
+        if(WiFi.status() != WL_CONNECTED) {
+            Serial.println("No Wifi!");
+            return;
+        }
+
+        Serial.println("Connected to Wifi, Connecting to server.");
+        // try to connect to Websockets server
+        bool connected = client.connect(websockets_server_host, websockets_server_port, "/");
+        if(connected) {
+            Serial.println("Connecetd!");
+            //client.send("Hello Server");
+        } else {
+            Serial.println("Not Connected!");
+        }
+    
+        // run callback when messages are received
+        client.onMessage([&](WebsocketsMessage message) {
+            Serial.print("Got Message: ");
+            Serial.println(message.data());
+        });
+    }
+
+    void loop() {
+      // let the websockets client check for incoming messages
+      if(client.available()) {
+        client.poll();
+      }
+      // Periodic sending of temperature sensor data to the customer
+      if (mytimer.repeat()) {
+        tempString = readTemperature();
+        Serial.println(tempString);
+        client.send(sensor + "@" +tempString);
+      }
+    }
+
+    // Temperature reading and calculation by the thermistor
+    double readTemperature() {
+      // Code extracted from the 'Thermistor Interfacing with NodeMCU' tutorial available at:
+      // https://www.electronicwings.com/nodemcu/thermistor-interfacing-with-nodemcu
+
+      const double VCC = 3.3; // NodeMCU on board 3.3v vcc
+      const double R2 = 10000; // 10k ohm series resistor
+      const double adc_resolution = 1023; // 10-bit adc
+      const double A = 0.001129148; // thermistor equation parameters
+      const double B = 0.000234125;
+      const double C = 0.0000000876741;
+      double Vout, Rth, temperature, adc_value;
+
+      adc_value = analogRead(A0);
+      Vout = (adc_value * VCC) / adc_resolution;
+      Rth = (VCC * R2 / Vout) - R2;
+
+      temperature = (1 / (A + (B * log(Rth)) + (C * pow((log(Rth)), 3))));  // Temperature in kelvin
+      temperature = temperature - 273.15;  // Temperature in degree celsius
+      delay(500);
+      return (temperature);
+    }
+## Golang Receiving Station:
+Required Software
+
+While we've covered the installation of REDIS and the GO language previously, establishing a connection with REDIS and accepting WebSocket connections from the NodeMCU requires the installation of specific library packages:
+
+- GORILLA: A Web Toolkit for the GO language.
+- REDIGO: A Go Client for REDIS.
+
+To install these packages, execute the following commands in your virtual terminal:
+    Go
+
+    go get github.com/gorilla/websocket
+    go get github.com/gomodule/redigo/redis
+
+## GO
+    GO
+    /*
+     
+	        This routine:
+                1. Starts a Websockets server
+                3. Waits for client messages with sensor data  
+                4. Parses the data received
+                5. Stores data in a REDIS database 
+         */    
+
+    package main
+
+    import (
+	    "fmt"
+	    "strconv"
+	    "strings"
+	    "time"
+	    "log"
+	    "github.com/gomodule/redigo/redis" 
+	    "github.com/gorilla/websocket"
+	    "net/http"
+    )
+
+    // HTTP request handler
+    var upgrader = websocket.Upgrader{
+	    ReadBufferSize:  1024,
+	    WriteBufferSize: 1024,
+	    CheckOrigin:     func(r *http.Request) bool { return true },
+    }
+
+    func main() {
+
+      // Starts the server connection 
+	    http.HandleFunc("/", handler)
+	    http.ListenAndServe(":8080", nil)
+    }
+
+    func handler(writer http.ResponseWriter, request *http.Request) {
+	    socket, err := upgrader.Upgrade(writer, request, nil)
+	    if err != nil {
+		    fmt.Println(err)
+	    }
+	    for {
+		    // reading the message received via Websocket
+	    	msgType, msg, err := socket.ReadMessage() // Dados recebido do sensor
+	    	if err != nil {
+		    	fmt.Println(err)
+		    	return
+		    }
+
+		    // Tratar a mensagem recebida
+		    var msg_split []string = strings.Split(string(msg), "@")   // Splitted data
+		    currentTime := strconv.FormatInt(time.Now().Unix(), 10)    // Current date and time
+		    key := msg_split[0]                                        // Key to the linked list
+                                                                   // on Redis
+		    value := currentTime + "|" + msg_split[1]                  // Value to the linked 
+                                                                   // list on Redis
+
+		    // Send the data to REDIS
+		    conn, err := redis.Dial("tcp", "localhost:6379")
+		    if err != nil {
+		    	log.Fatal(err)
+		    }
+		    defer conn.Close()
+		    _, err = conn.Do("RPUSH", key, value)
+		    if err != nil {
+			    log.Fatal(err)
+		    }
+
+		    // Optional: Returning the received message back to the customer
+		    err = socket.WriteMessage(msgType, msg)
+		    if err != nil {
+		    	fmt.Println(err)
+		    	return
+		    }
+	    }
+    }
+## Wrap-up:
+
+The amalgamation of the GO language and the REDIS database presents a potent combination for constructing robust and scalable applications, especially tailored for the IoT landscape.
+
+The code snippets demonstrated here are instructional in nature. However, there are ample opportunities for refinement:
+
+- Introduction of encryption and security measures to fortify data integrity.
+- Implementation of concurrency via GO routines to enhance operational efficiency.
+- Modularization of the application architecture to foster code maintainability and flexibility.
+
+By iteratively enhancing these facets, developers can augment the prowess and resilience of their IoT solutions.
+## References
+
+- [REDIS Official Page](https://redis.io/)
+- [Golang Official Page](https://go.dev/)
+- [José Cintra Page](https://www.josecintra.com/)
