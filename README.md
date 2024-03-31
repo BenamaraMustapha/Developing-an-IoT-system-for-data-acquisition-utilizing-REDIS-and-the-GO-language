@@ -11,32 +11,33 @@ The receptor module is designed to facilitate the reception and storage of data 
     -Subsequently, this data is rapidly cached in memory, ready for processing by the supervisory application.
 
 ## Steps Explanation:
+<div style="display: flex; justify-content: center;"> <img src="https://github.com/BenamaraMustapha/Developing-an-IoT-system-for-data-acquisition-utilizing-REDIS-and-the-GO-language/assets/119163433/3422ac6d-418f-4eb8-9c13-2850327f6022" width="300" height="150"> </div>
 
-    Sensor Network: The sensors are linked to microcontroller devices responsible for transmitting data to the concentrator. The choice of board models such as Arduino, ESP8266, ESP32, PIC, etc., is unrestricted. However, the selection should align with the preferred communication method.
+- Sensor Network: The sensors are linked to microcontroller devices responsible for transmitting data to the concentrator. The choice of board models such as Arduino, ESP8266, ESP32, PIC, etc., is unrestricted. However, the selection should align with the preferred communication method.
 
-    Communication Forms and Protocols: The system adheres to certain operating and software standards before device integration. Communication between devices and the concentrator is facilitated through various protocols, including:
+- Communication Forms and Protocols: The system adheres to certain operating and software standards before device integration. Communication between devices and the concentrator is facilitated through various protocols, including:
         Wi-Fi / Ethernet (Websocket / HTTP / REST)
         RF / LoRa
         Serial / Bluetooth
         GSM / GPRS
 
-    Receiving Routine: A GO routine is implemented to receive data from sensors, process it, and transmit it to the REDIS cache. Each communication protocol specified in step 2 has its dedicated routine.
+- Receiving Routine: A GO routine is implemented to receive data from sensors, process it, and transmit it to the REDIS cache. Each communication protocol specified in step 2 has its dedicated routine.
 
-    REDIS Cache: The REDIS cache serves to temporarily or permanently store sensor data. Optionally, the cache can be mirrored (replicated) for redundancy purposes.
+- REDIS Cache: The REDIS cache serves to temporarily or permanently store sensor data. Optionally, the cache can be mirrored (replicated) for redundancy purposes.
 
 ## Comments:
 
-    Additional Layers: Depending on the communication method and distance between components, there might be supplementary layers of hardware or software for interconnection. This overview provides a simplified description of the architecture.
+- Additional Layers: Depending on the communication method and distance between components, there might be supplementary layers of hardware or software for interconnection. This overview provides a simplified description of the architecture.
 
-    Server Distribution: While the architecture doesn't mandate specific decisions regarding server distribution, it's advisable to allocate a dedicated LINUX server for REDIS.
+- Server Distribution: While the architecture doesn't mandate specific decisions regarding server distribution, it's advisable to allocate a dedicated LINUX server for REDIS.
 
-    Module Scope: This description exclusively focuses on the data acquisition module. Details about the control module will be provided separately.
+- Module Scope: This description exclusively focuses on the data acquisition module. Details about the control module will be provided separately.
 
 ## Technologies:
 
-    REDIS: An in-memory data storage system renowned for its exceptional performance, serving as a NOSQL database, cache, or message broker. It employs key-value data structures like linked lists, strings, sets, etc., and offers options for temporary or persistent data storage. Noteworthy features include support for replication, stored procedures, partitioning, among others.
+- REDIS: An in-memory data storage system renowned for its exceptional performance, serving as a NOSQL database, cache, or message broker. It employs key-value data structures like linked lists, strings, sets, etc., and offers options for temporary or persistent data storage. Noteworthy features include support for replication, stored procedures, partitioning, among others.
 
-    GO (Golang): Developed by Google and released as open-source in November 2009, GO is a statically typed language compiled with a focus on productivity and concurrent programming. Its design caters to the multi-core nature of modern computers, making it a popular choice for programming large-scale network servers and distributed systems.
+- GO (Golang): Developed by Google and released as open-source in November 2009, GO is a statically typed language compiled with a focus on productivity and concurrent programming. Its design caters to the multi-core nature of modern computers, making it a popular choice for programming large-scale network servers and distributed systems.
 
 ## Development Environment:
 
